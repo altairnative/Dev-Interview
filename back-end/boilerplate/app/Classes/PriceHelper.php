@@ -2,6 +2,8 @@
 
 namespace App\Classes;
 
+use Illuminate\Support\Arr;
+
 class PriceHelper
 {
     /*
@@ -25,7 +27,30 @@ class PriceHelper
      */
     public static function getUnitPriceTierAtQty(int $qty, array $tiers): float
     {
-        return 0.0;
+        $unitPrice = 0.0;
+
+        if ($tiers && $qty > 0) {
+
+            /* Get the array keys of each tier in order to get the next tier item on the iteration */
+            $arrKeyTiers = array_keys($tiers);
+
+            /* Return the minimum tier quantity of the pricing tiers based on the quantity  */
+            $tierQty = Arr::first($arrKeyTiers, function($value, $index) use ($qty, $tiers, $arrKeyTiers) {
+                $qtyStart = $value;
+
+                /* get next item on the collection and identify the max quantity of the pricing tier */
+                $nextTierIndex = $index + 1;
+                if (isset($arrKeyTiers[$nextTierIndex])) {
+                    $nextTierItem = $arrKeyTiers[$nextTierIndex];
+                    $qtyEnd = $nextTierItem - 1;
+                    return $qtyStart <= $qty && $qtyEnd >= $qty;
+                }
+                return $qtyStart <= $qty;
+            });
+            $unitPrice = $tiers[$tierQty];
+        }
+
+        return $unitPrice;
     }
 
     /**
