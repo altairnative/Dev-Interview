@@ -67,6 +67,43 @@ class PriceHelper
      */
     public static function getTotalPriceTierAtQty(int $qty, array $tiers): float
     {
+        if ($tiers && $qty > 0) {
+            $hashTable = [];
+
+            $arrKeyTiers = array_keys($tiers);
+            /* Create a collection based on the array key tiers and return a new set collection containing the min and max qty of the pricing tier */
+            collect($arrKeyTiers)->mapWithKeys(function($minOrderQty,$index) use ($arrKeyTiers) {
+                $nextTierIndex = $index + 1;
+                $maxOrderQty = null;
+                if (isset($arrKeyTiers[$nextTierIndex])) {
+                    $maxOrderQty = $arrKeyTiers[$nextTierIndex] - 1;
+                }
+                return [$index => [
+                    'min' => $minOrderQty,
+                    'max' => $maxOrderQty,
+                ]];
+            })->each(function ($qtyTier) use ($qty, &$hashTable, $tiers) {
+                if ($qtyTier['max']) {
+                    /* calculate the total price on each pricing tier and based on the qty ordered */
+                    if ($qty > $qtyTier['max']) {
+                        $tierPrice = self::getUnitPriceTierAtQty($qtyTier['max'], $tiers);
+                        $totalPrice = $tierPrice * $qtyTier['max'];
+                    } else {
+                        $prevMaxQty = $qtyTier['min'] > 0 ? $qtyTier['min'] - 1 : $qtyTier['min'];
+                        $remainingQty = $qty > $prevMaxQty ? $qty - $prevMaxQty : $qty;
+                        $tierPrice = self::getUnitPriceTierAtQty($qty, $tiers);
+                        $totalPrice = $tierPrice * $remainingQty;
+                    }
+
+                    /* add the total price on a hashtable if it doesn't exist yet */
+                    if (!in_array($totalPrice, $hashTable)) {
+                        $hashTable[] = $totalPrice;
+                    }
+                }
+            });
+
+            return array_sum($hashTable);
+        }
         return 0.0;
     }
 
